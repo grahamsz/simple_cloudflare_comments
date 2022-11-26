@@ -1,0 +1,22 @@
+{
+  "name": "pages-plugin-indieweb-comments",
+  "version": "0.0.1",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "tsconfig.json"
+  ],
+  "scripts": {
+    "build": "wrangler pages functions build --plugin --outfile index.js"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20221111.1",
+    "@tsndr/cloudflare-worker-jwt": "^2.1.2",
+    "wrangler": "2"
+  },
+  "dependencies": {
+    "@types/gapi": "^0.0.43",
+    "worker-auth-providers": "^0.0.10-beta7"
+  }
+}

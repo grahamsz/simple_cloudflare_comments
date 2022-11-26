@@ -1,0 +1,9 @@
+node_compat = true
+
+[[ d1_databases ]]
+binding = "COMMENTS" # i.e. if you set this to "DB", it will be available in your Worker at `env.DB`
+database_name = "grahams_comments"
+database_id = "b5f34475-2099-4650-8a4b-5eaaac5418e4"
+
+migrations_table = "d1_migrations" # Customize this value to change your applied migrations table name
+migrations_dir = "../migrations" # Customize this value to rename the `migrations` folder
