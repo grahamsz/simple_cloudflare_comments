@@ -1,4 +1,4 @@
-node_compat = true
+
 
 [[ d1_databases ]]
 binding = "COMMENTS" # i.e. if you set this to "DB", it will be available in your Worker at `env.DB`

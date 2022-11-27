@@ -18,7 +18,8 @@ CREATE TABLE threads (
 
 CREATE TABLE comments (
     comment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    thread_id int,
+    comment text not null,
+    thread_id int not null,
     user_id int,
     timestamp int,
 

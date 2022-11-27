@@ -1,9 +1,7 @@
-export function getArrayLength(): number
-{
-    return 4;
-}
+export type PluginArgs = {
+	formats?: string[];
+};
 
-export class CookieHandler
-{
-    
-}
+
+
+export default function (args?: PluginArgs): PagesFunction;
