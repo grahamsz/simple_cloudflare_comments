@@ -6,7 +6,8 @@
 
 This is another page
 
-<div class="simplecomments"></div>
+<div id="comments"></div>
+<script>fetch('/scc/comments').then(response=> response.text()).then(text=> { document.getElementById('comments').innerHTML = text; if (location.href.includes('#')) location.href=location.href;});</script>
 
 
 

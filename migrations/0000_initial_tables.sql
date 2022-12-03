@@ -19,9 +19,11 @@ CREATE TABLE threads (
 CREATE TABLE comments (
     comment_id INTEGER PRIMARY KEY AUTOINCREMENT,
     comment text not null,
+    sanitized_comment text,
     thread_id int not null,
     user_id int,
     timestamp int,
+    in_response_to_comment_id int,
 
     FOREIGN KEY (thread_id) 
       REFERENCES threads (thread_id) 
@@ -33,5 +35,12 @@ CREATE TABLE comments (
       REFERENCES users (user_id) 
          ON DELETE CASCADE 
          ON UPDATE NO ACTION
+
+
+
+    FOREIGN KEY (in_response_to_comment_id) 
+      REFERENCES comments (comment_id) 
+         ON DELETE CASCADE 
+         ON UPDATE NO ACTION,
 
 );

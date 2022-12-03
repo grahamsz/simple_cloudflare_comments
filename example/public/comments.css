@@ -1,52 +1,198 @@
-.simplecomments
-{
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display:flex;
-    flex-direction: row;
-
-    max-width: 600px;
-    flex-wrap: wrap;
-    
+div.scc_thread {
+  display: flex;
+  flex-direction: row;
+  max-width: 800px;
+  flex-wrap: wrap;
+  column-gap: 14px;
 }
-.simplecomments .user-comment
-{
-    display:flex;
-flex-basis: 100%;
-    max-width: 600px;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+div.scc_reactions {
+  display: grid;
+  grid-template-columns: 64px auto;
+  grid-template-rows: 64;
+  width: auto;
+  border: 2px solid #888;
+}
+div.scc_reactions div.scc_icon {
+  grid-column: 1;
+  background-color: black;
+  width: 64;
+
+  height: 64;
+}
+div.scc_reactions div.scc_icon icon {
+  display: block;
+  width: 44;
+  height: 44;
+  margin: 10px;
+  background-color: white;
+  background-size: auto;
+  mask-repeat: no-repeat;
+}
+div.scc_likes div.scc_icon icon {
+  mask-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><title>Heart</title><path d="M352.92 80C288 80 256 144 256 144s-32-64-96.92-64c-52.76 0-94.54 44.14-95.08 96.81-1.1 109.33 86.73 187.08 183 252.42a16 16 0 0018 0c96.26-65.34 184.09-143.09 183-252.42-.54-52.67-42.32-96.81-95.08-96.81z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/></svg>');
+}
+div.scc_shares div.scc_icon icon {
+  mask-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><title>Share Social</title><circle cx="128" cy="256" r="48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><circle cx="384" cy="112" r="48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><circle cx="384" cy="400" r="48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M169.83 279.53l172.34 96.94M342.17 135.53l-172.34 96.94"/></svg>');
+}
+div.scc_no_photo icon {
+  mask-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><title>Person Circle</title><path d="M258.9 48C141.92 46.42 46.42 141.92 48 258.9c1.56 112.19 92.91 203.54 205.1 205.1 117 1.6 212.48-93.9 210.88-210.88C462.44 140.91 371.09 49.56 258.9 48zm126.42 327.25a4 4 0 01-6.14-.32 124.27 124.27 0 00-32.35-29.59C321.37 329 289.11 320 256 320s-65.37 9-90.83 25.34a124.24 124.24 0 00-32.35 29.58 4 4 0 01-6.14.32A175.32 175.32 0 0180 259c-1.63-97.31 78.22-178.76 175.57-179S432 158.81 432 256a175.32 175.32 0 01-46.68 119.25z"/><path d="M256 144c-19.72 0-37.55 7.39-50.22 20.82s-19 32-17.57 51.93C191.11 256 221.52 288 256 288s64.83-32 67.79-71.24c1.48-19.74-4.8-38.14-17.68-51.82C293.39 151.44 275.59 144 256 144z"/></svg>');
+  width: 44;
+  height: 44;
+  margin: 10px;
+  display: block;
+  background-color: white;
+  background-size: auto;
+  mask-repeat: no-repeat;
+}
+div.scc_reactions div.scc_links {
+  grid-column: 2;
 }
 
-.simplecomments .user-comment p{
-
-    border:1px solid lightgray;
-    padding:12px;
-    flex-basis:100%;
+div.scc_reactions {
+  flex-basis: 48%;
 }
-
-.simplecomments .user-comment .information
-{
-
-    font-size: 80%;
-    align-self: flex-end;
-    margin-top: -15px;
+div.scc_thread > form{
+  flex-basis: 100%;
 }
-
-
-.simplecomments .add-new
-{
-    
-    margin-top:15px;
-    flex-basis: 100%;
-    height: 100px;
-    margin-bottom: 12px;
+div.scc_comment {
+  flex-basis: 100%;
+  display: grid;
+  grid-template-columns: 64px auto 140px;
+  grid-template-rows: 64px auto auto;
+  grid-gap: 0px;
+  padding: 0px;
+  border: 2px solid #888;
+  flex-direction: column;
+  margin-top: 4px;
+  margin-bottom: 4px;
 }
 
 
-.simplecomments .add-new textarea
+@keyframes target-fade {
+  from { background-color: lightsalmon; } /* [1] */
+  to { background-color: white;}
+}
+
+div.scc_comment:target{
+
+  animation: target-fade 1s;
+}
+
+
+div.scc_indent1 {
+  margin-left: 40px;
+}
+div.scc_img {
+  grid-row: 1;
+  background-color: #000;
+  grid-column: 1;
+}
+
+div.scc_img img {
+  max-width: 80px;
+  height: 64px;
+}
+div.scc_time {
+  color: white;
+  background-color: #000;
+  grid-row: 1;
+  grid-column: 3;
+  padding-right: 12px;
+  text-align: right;
+}
+
+div.scc_author {
+  font-weight: 600;
+  padding-left: 14px;
+  grid-row: 1;
+  grid-column: 2;
+  color: white;
+  background-color: #000;
+}
+
+div.scc_compose,
+div.scc_login {
+  background: repeating-linear-gradient(
+    45deg,
+    #ddd,
+    #ddd 20px,
+    #eee 20px,
+    #eee 40px
+  );
+
+  transition: all 0.5s ease-in-out;
+  overflow: hidden;
+}
+
+div.scc_compose div.scc_author,
+div.scc_login div.scc_author,
+div.scc_compose div.scc_img,
+div.scc_login div.scc_img ,
+div.scc_compose div.scc_time,
+div.scc_login div.scc_time 
 {
-    width:100%;
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+div.scc_login div.scc_text {
+  padding: 16 16 32 16;
+}
+
+
+div.scc_compose:not(:target),
+div.scc_login:not(:target) {
+  height: 0px;
+
+  border: none;
+}
+div.scc_compose:target {
+  height: 300px;
+
+  border: 2px solid #888;
+}
+
+div.scc_login:target {
+  height: 150px;
+
+  border: 2px solid #888;
+}
+
+div.scc_author a {
+  color: #ccc;
+}
+div.scc_text {
+  padding-left: 16px;
+  padding-right: 16px;
+  margin-top: 12px;
+  text-align: justify;
+  grid-row: 2;
+  grid-column: 1/4;
+}
+div.scc_text p {
+  margin: 0px;
+}
+div.scc_text textarea {
+  margin-top: 6px;
+  width: 100%;
+  height: 180px;
+  border: none;
+  box-sizing: border-box;
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+div.scc_comment div.scc_links {
+  grid-row: 3;
+  grid-column: 2/4;
+  text-align: right;
+
+  padding-right: 12px;
+}
+div.scc_links a {
+  margin-left: 5px;
+  display: inline-block;
+  padding: 3px 12px 3px 12px;
+  margin-bottom: 3px;
+  font-size: 70%;
+  background-color: black;
+  color: white;
 }

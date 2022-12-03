@@ -21,7 +21,7 @@ export class SimpleCloudflareCommentsUser
         this.isAdmin = isAdmin;
     }
 
-    async getSignedCookieString()
+    async getSignedCookieString(cookieSecret:string)
     {
         var u = new URLSearchParams();
         u.append("userId", this.userId.toString());
@@ -39,7 +39,7 @@ export class SimpleCloudflareCommentsUser
             {
               name: 'SHA-256',
             },
-            new TextEncoder().encode(cookie + "9812347913284") // The data you want to hash as an ArrayBuffer
+            new TextEncoder().encode(cookie + cookieSecret) // The data you want to hash as an ArrayBuffer
           );
 
           const hashArray = Array.from(new Uint8Array(myDigest));
@@ -53,7 +53,7 @@ export class SimpleCloudflareCommentsUser
         return cookie;
     }
 
-    static async getFromCookieString(cookie:string)
+    static async getFromCookieString(cookie:string,cookieSecret:string)
     {
         var parts = cookie.split("|");
         var cookie = parts[0];
@@ -63,7 +63,7 @@ export class SimpleCloudflareCommentsUser
             {
                 name: 'SHA-256',
             },
-            new TextEncoder().encode(cookie + "9812347913284") // The data you want to hash as an ArrayBuffer
+            new TextEncoder().encode(cookie +cookieSecret) // The data you want to hash as an ArrayBuffer
         );
         
         const hashArray = Array.from(new Uint8Array(myDigest));

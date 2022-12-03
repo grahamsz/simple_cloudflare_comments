@@ -1,8 +1,8 @@
 
-import type { PluginArgs } from "../..";
+import type { PluginArgs } from "../../index.d";
 import { parse } from 'cookie';
 
-import { SimpleCloudflareCommentsUser } from "../../index.ts";
+import { SimpleCloudflareCommentsUser } from "../../index";
 
 import {
   github, google
@@ -11,20 +11,18 @@ import { TokenError } from "worker-auth-providers/src/utils/errors";
 
 export interface Env {
   COMMENTS: D1Database;
+  PluginArgs: PluginArgs;
 }
 
 
 
 
 
-const COOKIE_NAME = "cloudflare_comments_auth";
-
-
 export const onRequest:  PagesFunction<Env> = async (context) => {
 
 
   var request = context.request;
-  console.log("My env is " + JSON.stringify(context.env));
+  
   const cookie = parse(request.headers.get('Cookie') || '');
 
 
@@ -32,11 +30,12 @@ export const onRequest:  PagesFunction<Env> = async (context) => {
   const { searchParams } = new URL(request.url);
 
 
+  // Google auth passes back the state as a query parameter and we use that to figure out where we're going
   const stateParamsString = searchParams.get('state');
 
   if (stateParamsString) {
-    console.log("have state params");
-
+    
+    // we actually combine a bunch fo parameters in here, so we'll URL decode it _again_!
     const stateParams = new URLSearchParams(stateParamsString);
 
     if (stateParams.get("callback") == "google") {
@@ -46,11 +45,12 @@ export const onRequest:  PagesFunction<Env> = async (context) => {
       // Next we have to confirm that the request really came from google
       try {
         const { user: providerUser } = await google.users({
-          options: { clientId: "484015825698-jo5sr10ca5eiavcicakokce8q841v8el.apps.googleusercontent.com", clientSecret: "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", redirectUrl:getRedirectUrl(request)  },
+          options: { clientId: context.pluginArgs.googleClientId, clientSecret: context.pluginArgs.googleClientSecret, redirectUrl:getRedirectUrl(request)  },
           request: request
 
 
         });
+        // 
         console.log("about to query for user");
 
         // We'll have thrown by this point if the google login isn't valid
@@ -76,7 +76,7 @@ export const onRequest:  PagesFunction<Env> = async (context) => {
         var userObject =new SimpleCloudflareCommentsUser(userId, providerUser.email, "google",providerUser.id, providerUser.picture,  providerUser.given_name, providerUser.family_name,false);
 
         console.log(userObject);
-        var cookieSting = await userObject.getSignedCookieString();
+        var cookieSting = await userObject.getSignedCookieString(context.pluginArgs.authCookieSecret);
 
         var redirectUrl = new URL(stateParams.get("url"));
        // redirectUrl.searchParams.set("cache_break", (Math.random() + 1).toString(36).substring(2));
@@ -85,7 +85,7 @@ export const onRequest:  PagesFunction<Env> = async (context) => {
        return new Response("Redirecting back to site", {
         status: 302,
         headers: {
-          'Set-Cookie': `cloudflare_comments_auth=${cookieSting}; Path=/;  SameSite=Lax;`,
+          'Set-Cookie': `${context.pluginArgs.authCookieName}=${cookieSting}; Path=/;  SameSite=Lax;`,
           'Location': redirectUrl.toString()
         }
       });
@@ -107,6 +107,17 @@ export const onRequest:  PagesFunction<Env> = async (context) => {
     }
   }
 
+  if (searchParams.get("logout"))
+  {
+    return new Response("Redirecting back to site", {
+      status: 302,
+      headers: {
+        'Set-Cookie': `${context.pluginArgs.authCookieName}=; Path=/;  SameSite=Lax; expires=Thu, 01 Jan 1970 00:00:00 GMT;`,
+        'Location': searchParams.get("url")
+      }
+    });
+
+  }
   if (searchParams.get("redirect") == "google") {
     try{
           
@@ -114,7 +125,7 @@ export const onRequest:  PagesFunction<Env> = async (context) => {
 
     var state = "callback=google&url=" + encodeURI(searchParams.get("url"));
 
-    var a = await google.redirect({ options: { clientId: "484015825698-jo5sr10ca5eiavcicakokce8q841v8el.apps.googleusercontent.com", state: state, clientSecret: "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",  redirectUrl:  getRedirectUrl(request) } });
+    var a = await google.redirect({ options: { clientId: context.pluginArgs.googleClientId , state: state, clientSecret: context.pluginArgs.googleclientSecret,  redirectUrl:  getRedirectUrl(request) } });
    
 
     return new Response(a, { status: 302, headers: { location: a } });
@@ -135,6 +146,6 @@ function getRedirectUrl(request)
   var auth = new URL(request.url);
 
     auth.search = "";   // remove any search parameters from our return adddress
-    auth.pathname = "/auth";  // set the path to our auth handler
+    auth.pathname = "/scc/auth";  // set the path to our auth handler
     return auth.toString().trim();
 }
