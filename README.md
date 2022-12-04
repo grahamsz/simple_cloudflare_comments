@@ -1,5 +1,10 @@
 # Simple Cloudflare Comments
 
-![Built with Pages Plugins](https://img.shields.io/static/v1?labelColor=white&label=Built&color=F38020&url=https://pages.cloudflare.com&style=for-the-badge&message=With%20Pages%20Plugins&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+DQogIDx0aXRsZT5DbG91ZGZsYXJlIFBhZ2VzPC90aXRsZT4NCiAgPGRlZnM+DQogICAgPGxpbmVhckdyYWRpZW50IGlkPSJDbG91ZGZsYXJlUGFnZXNMb2dvLS1ncmFkaWVudCIgeDE9IjExOC4xOCUiIHgyPSIxMC44JSIgeTE9Ii0yLjM5JSIgeTI9IjEwMS42MiUiPg0KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI2ZiYjc0MyIvPg0KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjZjI4MzMzIi8+DQogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiNlYTZiMDAiLz4NCiAgICA8L2xpbmVhckdyYWRpZW50Pg0KICA8L2RlZnM+DQogIDxnIGZpbGw9Im5vbmUiIGZpbGwtcnVsZT0ibm9uemVybyI+DQogICAgPHBhdGggZmlsbD0iI2I3YmJiZCIgZD0iTTQxLjk0IDhINTZsMiAydjQ0bC0yIDJIMzYuODRsLjk3LTEuNWgxNy41N2wxLjEyLTEuMTJWMTAuNjJMNTUuMzggOS41SDQzLjI2bC0xLjQzIDcuMzlINDAuM2wxLjM3LTcuNDYuMjgtMS40M3pNOCA1NmwtMi0yVjEwbDItMmgxOS45TDI2LjkgOS41SDguNjJMNy41IDEwLjYydjQyLjc2bDEuMTIgMS4xMkgyMy4xbC0uMjQgMS41SDh6bTMtNWg4LjVsLS4zIDEuNUgxMGwtLjUtLjV2LTlsMS41IDN2NXptMzQgMGwxLjUgMS41SDM5bDEtMS41aDV6Ii8+DQogICAgPHBhdGggZmlsbD0idXJsKCNDbG91ZGZsYXJlUGFnZXNMb2dvLS1ncmFkaWVudCkiIGQ9Ik0yOC42NyAzOEgxNWwtMS42Ni0zLjEyIDIzLTM0IDMuNjIgMS41TDM1LjQyIDI2SDQ5bDEuNjggMy4wOS0yMiAzNC0zLjY2LTEuNEwyOC42NyAzOHpNMTEuNSAxNWExLjUgMS41IDAgMTEwLTMgMS41IDEuNSAwIDAxMCAzem00IDBhMS41IDEuNSAwIDExMC0zIDEuNSAxLjUgMCAwMTAgM3ptNCAwYTEuNSAxLjUgMCAxMTAtMyAxLjUgMS41IDAgMDEwIDN6Ii8+DQogIDwvZz4NCjwvc3ZnPg==)
+This is a proof of concept plugin which enables google cloudflare comments. 
 
-This is build as a proof of concept for a google-login capable cloudflare comments engine
+Lots of clean up and better instructions are needed, but see the example folder which shows how this might be deployed. Once you've got the cloudflare bits working, you can add comments to a website with something as simple as 
+
+```
+<div id="comments"></div>
+<script>fetch('/scc/comments').then(response=> response.text()).then(text=> { document.getElementById('comments').innerHTML = text; if (location.href.includes('#')) location.href=location.href;});</script>
+```
