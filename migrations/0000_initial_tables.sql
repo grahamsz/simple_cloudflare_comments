@@ -34,13 +34,13 @@ CREATE TABLE comments (
     FOREIGN KEY (user_id) 
       REFERENCES users (user_id) 
          ON DELETE CASCADE 
-         ON UPDATE NO ACTION
+         ON UPDATE NO ACTION,
 
 
 
     FOREIGN KEY (in_response_to_comment_id) 
       REFERENCES comments (comment_id) 
          ON DELETE CASCADE 
-         ON UPDATE NO ACTION,
+         ON UPDATE NO ACTION
 
 );

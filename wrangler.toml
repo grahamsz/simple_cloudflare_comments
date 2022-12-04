@@ -1,2 +1,8 @@
 name = "simple-cloudflare-comments"
 compatibility_date = "2022-11-20"
+
+
+[[ d1_databases ]]
+binding = "COMMENTS" # i.e. if you set this to "DB", it will be available in your Worker at `env.DB`
+database_name = "grahams_comments"
+database_id = "b5f34475-2099-4650-8a4b-5eaaac5418e4"

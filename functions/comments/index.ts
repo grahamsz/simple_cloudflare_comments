@@ -4,7 +4,7 @@ import { parse } from 'cookie';
 
 import { SimpleCloudflareCommentsUser } from "../../index.ts";
 
-import { marked }  from 'marked';
+import { marked } from 'marked';
 import { format } from 'timeago.js';
 import sanitizeHtml from 'sanitize-html';
 
@@ -28,7 +28,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
   if (cookieHeader[context.pluginArgs.authCookieName] != null) {
     // if we can successfully decode the cookie, we'll add the decoded user to context.data
-    context.data.decodedUser = await SimpleCloudflareCommentsUser.getFromCookieString(cookieHeader[context.pluginArgs.authCookieName],context.pluginArgs.authCookieSecret);
+    context.data.decodedUser = await SimpleCloudflareCommentsUser.getFromCookieString(cookieHeader[context.pluginArgs.authCookieName], context.pluginArgs.authCookieSecret);
   }
 
   if (context.request.method == "GET") {
@@ -36,11 +36,21 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return getCommentThread(context);
   }
   if (context.request.method == "POST") {
+
+    context.data.formData = await context.request.formData();
+
+    // if comment_id is posted then this is an edit
+    if (context.data.formData.get("comment_id")) {
+      return editComment(context);
+    }
+    
+  
+
     // POST requests add a comment to the thread
     return addNewComment(context);
   }
   // We don't support any other methods
-  return new Response("Method not allowed", { status: 405  });
+  return new Response("Method not allowed", { status: 405 });
 }
 
 
@@ -54,66 +64,159 @@ async function getCommentThread(context) {
   if (referer) {
     // we parse the referer to get a URL object and store it in context.data
     context.data.refererUrl = new URL(referer);
-  } else
-  {
+  } else {
     return new Response("Comments threads require a referer be set", { status: 400 });
   }
 
+  var promises = [];
 
-  try {
-    // We use the d1 library to query the database
-    // We use the referer pathname as the reference for the comments
-    
-    var sql = `SELECT comments.*,users.*, threads.url
+  // We use the d1 library to query the database
+  // We use the referer pathname as the reference for the comments
+
+  var sql = `SELECT comments.*,users.*, threads.url
                 FROM comments 
                 INNER JOIN users ON comments.user_id = users.user_id
                 INNER JOIN threads ON comments.thread_id = threads.thread_id
       WHERE threads.url = ? ORDER BY ifnull(in_response_to_comment_id,comment_id), timestamp`;
-    var results = await context.env.COMMENTS.prepare(sql).bind(context.data.refererUrl.pathname).all();
-    context.data.comments = results.results;
+  promises.push(context.env.COMMENTS.prepare(sql).bind(context.data.refererUrl.pathname).all().then((sqlResultSet) => {
+    context.data.comments = sqlResultSet.results;
+  }));
 
-  } catch (e) {
-    return new Response("Error fetching the comments from the database: " + e, { status: 500 });  
-  }
+  console.log("https://webmention.io/api/mentions.jf2?target=" + encodeURIComponent(context.data.refererUrl.toString()));
+  // fetch the following URL and return a promise for the response
+  promises.push(fetch("https://webmention.io/api/mentions.jf2?target=" + encodeURIComponent(context.data.refererUrl.toString()))
+    .then(async response => {
+      context.data.webmentions = await response.json();
+      console.log(context.data.webmentions);
+    }
+    ));
+
+  await Promise.all(promises);
+
+  // convert the comments list to that the in_response_to_comment_id comments get added as collction to the parent comment
+
+  var commentsById = {};
+  context.data.comments.forEach((comment) => {
+    commentsById[comment.comment_id] = comment;
+
+    if (comment.in_response_to_comment_id) {
+      if (!commentsById[comment.in_response_to_comment_id].replies) {
+        commentsById[comment.in_response_to_comment_id].replies = [];
+      }
+      commentsById[comment.in_response_to_comment_id].replies.push(comment);
+
+      // remove the child comment from the parent list
+      context.data.comments = context.data.comments.filter((c) => c.comment_id != comment.comment_id);
+    }
+  });
+
+  // extract all webmentions with a wm-property of like-of
+  context.data.webmentionLikes = context.data.webmentions.children.filter((wm) => wm["wm-property"] == "like-of");
+  context.data.webmentionReposts = context.data.webmentions.children.filter((wm) => wm["wm-property"] == "repost-of");
+
+  // filter out all in-reply-to mentions and convert their published date to a timestamp
+  context.data.webmentionReplies = context.data.webmentions.children.filter((wm) => wm["wm-property"] == "in-reply-to").map((wm) => {
+    wm.timestamp = new Date(wm.published).getTime();
+    wm.first_name = wm.author.name;
+    wm.last_name = "";
+    wm.wm_url = wm.url;
+    wm.url = wm.author.url;
+
+    wm.sanitized_comment = sanitizeHtml(wm.content.html);
+    wm.picture_url = wm.author.photo;
+    return wm;
+  });
+
+  // append the webmentions to the comments and sort by timestamp
+  context.data.comments = context.data.comments.concat(context.data.webmentionReplies).sort((a, b) => a.timestamp - b.timestamp);
 
   // We use the getCommentsElement function to render the HTML
   var comments = await getCommentsElement(context);
+
   return new Response(comments, { status: 200 });
 }
 
-async function getCommentsElement(context) 
-{
+async function getCommentsElement(context) {
   // This is our string buffer for the resultant thread
   var commentsElement = "";
   var sqlResultSet = context.data.comments;
 
   commentsElement += `<div class="scc_thread">`;
 
-  if (sqlResultSet.length > 0) {
-    commentsElement += `<h4>There are ${sqlResultSet.length} comments.</h4>\n`;
-  } else {
-    commentsElement += `<h4>Nobdoy has commented yet.</h4>\n`;
+  var totalComments = sqlResultSet.filter((comment) => comment.comment_id).reduce((total, comment) => 1 + total + (comment.replies ? comment.replies.length : 0), 0);
+  var totalLikes = context.data.webmentionLikes.length;
+  var totalReposts = context.data.webmentionReposts.length;
+  var totalWebmentions = sqlResultSet.filter((comment) => comment.wm_url).length;
+
+  // build a summary of the four totals
+  var summary = [];
+  if (totalComments > 0) {
+    summary.push(`${totalComments} comment${totalComments > 1 ? "s" : ""}</span>`);
+  }
+  if (totalWebmentions > 0) {
+    summary.push(`${totalWebmentions} webmention${totalWebmentions > 1 ? "s" : ""}</span>`);
   }
 
-  commentsElement+= ` <div class="scc_links"><a href="#scc-${context.data.decodedUser ? "reply" : "login"}">Add a Comment</a></div>`;
+  if (totalLikes > 0) {
+    summary.push(`${totalLikes} like${totalLikes > 1 ? "s" : ""}</span>`);
+  }
+  if (totalReposts > 0) {
+    summary.push(`${totalReposts} repost${totalReposts > 1 ? "s" : ""}</span>`);
+  }
+
+  if (summary.length == 0) {
+    commentsElement += "No comments yet. Post below or <a href=\"https://webmention.io/\">send a webmention</a>.";
+  }
+  else{
+  commentsElement += `<div class="scc_summary">This post has ${summary.join(", ")}.</div>`;
+  }
+
+
+
+  if (totalLikes>0)
+  {
+    commentsElement += `<div class="scc_likes scc_reactions"><div class="scc_icon"><icon></icon></div>`;
+    context.data.webmentionLikes.forEach((wm) => {
+      commentsElement += `<a href="${wm.author.url}" class="scc_like" title="${wm.author.name} liked this"><img src="${wm.author.photo}" alt="${wm.author.name}  liked this" /></a>`;
+    });
+    commentsElement += `</div>`;
+  }
+
+  if (totalReposts>0)
+  {
+    commentsElement += `<div class="scc_reposts scc_reactions"><div class="scc_icon"><icon></icon></div>`;
+    context.data.webmentionReposts.forEach((wm) => {
+      commentsElement += `<a href="${wm.author.url}" class="scc_repost" title="${wm.author.name}  reposted this"><img src="${wm.author.photo}" alt="${wm.author.name}  reposted this" /></a>`;
+    });
+    commentsElement += `</div>`;
+  }
+
+
+
 
   var lastCommentId;
   sqlResultSet.forEach((row) => {
-    if ((lastCommentId) && (lastCommentId != (row.in_response_to_comment_id ?? row.comment_id))) {
-      commentsElement += getAddCommentElement(context, lastCommentId)
-    }
+
     commentsElement += getCommentElement(context, row);
-    lastCommentId = row.in_response_to_comment_id ?? row.comment_id;
+    // also add child comments
+    if (row.replies) {
+      row.replies.forEach((reply) => {
+        commentsElement += getCommentElement(context, reply);
+      });
+    }
+
+
+    if (row.comment_id) {
+      commentsElement += getAddCommentElement(context, row.comment_id)
+    }
   });
 
-  if (lastCommentId) {
-    // This adds a reply box for the last comment
-    commentsElement += getAddCommentElement(context, lastCommentId)
-  }
+
 
   // and finally for the whole thread.
   commentsElement += getAddCommentElement(context, null)
 
+  commentsElement += ` <div class="scc_links"><a href="#scc-${context.data.decodedUser ? "reply" : "login"}">Add a Comment</a></div>`;
   commentsElement += `</div">`;
 
 
@@ -124,10 +227,18 @@ async function getCommentsElement(context)
 
 function getCommentElement(context, sqlResult) {
 
-console.log(sanitizeHtml("<img src=x onerror=alert('img') />"));
-console.log(sanitizeHtml("console.log('hello world')"));
-console.log(sanitizeHtml("<script>alert('hello world')</script>"));
   var addedClass = "";
+  var links = [];
+  var authorLink = "";
+
+  var editable=false;
+
+  
+  if ((context.data.decodedUser) && (sqlResult.user_id==context.data.decodedUser.userId)  &&  (new Date().getTime() - sqlResult.timestamp < 600000))
+  {
+    editable=true;
+  }
+
   var replyToId = "scc-" + (context.data.decodedUser ? "reply" : "login") + "-" + sqlResult.comment_id;
   if (sqlResult.in_response_to_comment_id) {
     // We support one level of indentation and since the comments are sorted correctly by the database
@@ -136,23 +247,57 @@ console.log(sanitizeHtml("<script>alert('hello world')</script>"));
     replyToId = "scc-" + (context.data.decodedUser ? "reply" : "login") + "-" + sqlResult.in_response_to_comment_id;
   }
 
-  //console.log(Sanitize(marked.parse(`<img src="x" onerror="alert('not happening')">`), Sanitize::Config::RELAXED));
+  if (sqlResult.comment_id) {
+    links.push(`<a class="scc_links_reply" href="#${replyToId}">Reply</a>`);
+  }
 
-  return `
+  if (sqlResult.wm_url) {
+    links.push(`<a class="scc_links_view_wm" href="${sqlResult.wm_url}">View Webmention</a>`);
+  }
+
+  if (editable)
+  {
+    var stillEditableForMinutes = Math.round((600000 - (new Date().getTime() - sqlResult.timestamp))/60000) + " minutes";
+    links.push(`<a class="scc_links_edit" href="#scc-edit-${sqlResult.comment_id}">Edit (for ${stillEditableForMinutes})</a>`);
+    links.push(`<a class="scc_links_cancel_edit" href="#scc-comment-${sqlResult.comment_id}">Cancel Edit</a>`);
+    
+    links.push(`<input class="scc_links_submit_edit"  value="Save Changes" type="submit"/>`)
+
+  }
+  // test if url is more than 5 chars long and starts with http or https    
+  if (sqlResult.url && sqlResult.url.length > 5 && sqlResult.url.match(/^https?:\/\//)) {
+    authorLink = `<br><a href="${sqlResult.url}">${sqlResult.url}</a>`;
+  }
+
+  var combinedComment = "";
+  
+  if (editable) { combinedComment += `
+  <form action="${ context.data.functionRoot + "comments"}" method="post" class="scc_editable" id="scc-edit-${sqlResult.comment_id}">  
+  <input type="hidden" name="comment_id" value="${sqlResult.comment_id}"/>
+  <input type="hidden" name="url" value="${context.data.refererUrl.pathname}"/>
+  <input type="hidden" name="return_url" value="${context.data.refererUrl}"/>`; }
+
+  combinedComment+=  ` 
   <div class="scc_comment ${addedClass}" id="scc-comment-${sqlResult.comment_id}"  >
       <div class="scc_img"> <img src="${sqlResult.picture_url}"></div>
       <div class="scc_time">${format(sqlResult.timestamp)}</div>
-      <div class="scc_text"><p>${sqlResult.sanitized_comment}</p></div>
-      <div class="scc_author">${sqlResult.first_name}</div>
-      <div class="scc_links"><a href="#${replyToId}">Reply</a></div>
+      <div class="scc_text"><span>${sqlResult.sanitized_comment}</span>`;
+      if (editable) { combinedComment += `<textarea name="comment">${sqlResult.comment}</textarea>`; }
+      
+      combinedComment+= `</div>
+      <div class="scc_author">${sqlResult.first_name}${authorLink}</div>
+      <div class="scc_links">${links.join("")}</div>
 
   </div>`;
+
+  if (editable) { combinedComment += `</form>`; }
+  return combinedComment;
 
 }
 
 function getAddCommentElement(context, replyToCommentId) {
   var addedClass = "";
-  var addedInputElement="";
+  var addedInputElement = "";
   var replyToId;
 
   if (context.data.decodedUser) {
@@ -176,7 +321,7 @@ function getAddCommentElement(context, replyToCommentId) {
     <div class="scc_time"></div>
     <div class="scc_text"><textarea name="comment" placeholder="Your comment here\nLimited _markdown_ is supported."></textarea></div> 
     <div class="scc_author">Posting as Graham (<a href="${logOutLink}">logout</a>)</div>
-    <div class="scc_links"><a href="#" class="submit">Cancel</a><input type="submit"/></div>
+    <div class="scc_links"><a href="#" class="submit">Cancel</a><input value="Post Comment" type="submit"/></div>
     
   </div></form>`;
 
@@ -210,46 +355,92 @@ async function addNewComment(context) {
   var request = context.request;
 
   // The webapp shouldn't let us get here without a user, but just in case
-  if (context.data.decodedUser==null)  
-  {
-    return new Response("Invalid cookie", {status:401});
+  if (context.data.decodedUser == null) {
+    return new Response("Invalid cookie", { status: 401 });
   }
 
   // get form parameters
-  const formData = await request.formData();
+  const formData = context.data.formData;
 
   // get everything we need from the form
   const comment = formData.get("comment");
-  const url =   formData.get("url");
+  const url = formData.get("url");
 
   var inResponseTo = null;
   if (formData.get("in_response_to")) {
     inResponseTo = formData.get("in_response_to");
- }
+  }
 
   // load the thread by url
   var thread = await context.env.COMMENTS.prepare(`SELECT * from threads where url=?`).bind(url).all();
 
-  if (thread.results.length==0) 
-  {
+  if (thread.results.length == 0) {
     // if this thread doesn't exist, we'll need to insert it here
     await context.env.COMMENTS.prepare(`INSERT INTO threads (url) VALUES (?)`).bind(url).run();
-  
+
     // now we can get the thread id (note in dev this is returned from the previous state, but in prod that comes back as null)
     thread = await context.env.COMMENTS.prepare(`SELECT * from threads where url=?`).bind(url).all();
 
-  } 
-  var threadId = thread.results[0].thread_id;  
-  
+  }
+  var threadId = thread.results[0].thread_id;
+
 
   // now insert into database
-  await context.env.COMMENTS.prepare(`INSERT INTO comments (user_id, thread_id, comment, sanitized_comment, timestamp, in_response_to_comment_id) VALUES (?, ?, ?, ?,?,?)`).bind(context.data.decodedUser.userId, threadId, comment,sanitizeHtml(marked.parse(comment)), Date.now(),inResponseTo).run();
+  await context.env.COMMENTS.prepare(`INSERT INTO comments (user_id, thread_id, comment, sanitized_comment, timestamp, in_response_to_comment_id) VALUES (?, ?, ?, ?,?,?)`).bind(context.data.decodedUser.userId, threadId, comment, sanitizeHtml(marked.parse(comment)), Date.now(), inResponseTo).run();
 
   // we need a second query to get the comment id back
   var commentId = await context.env.COMMENTS.prepare(`SELECT max(comment_id) comment_id from comments where thread_id=?`).bind(threadId).all();
 
   // build a redirect url that will target the newly added comment, so it flashes with CSS
-  const redirectUrl = new URL( formData.get("return_url")  + "#scc-comment-" +commentId.results[0].comment_id );
+  const redirectUrl = new URL(formData.get("return_url") + "#scc-comment-" + commentId.results[0].comment_id);
+  var redirectResponse = Response.redirect(redirectUrl.toString(), 302);
+  return redirectResponse;
+}
+
+// This function handles the POST request to add a comment
+async function editComment(context) {
+
+  var request = context.request;
+
+  // The webapp shouldn't let us get here without a user, but just in case
+  if (context.data.decodedUser == null) {
+    return new Response("Invalid cookie", { status: 401 });
+  }
+
+  // get form parameters
+  const formData = context.data.formData;
+
+  // get everything we need from the form
+  const comment = formData.get("comment");
+  const url = formData.get("url");
+  const commentId = formData.get("comment_id");
+
+  // load the comment by id
+  var commentResults = await context.env.COMMENTS.prepare(`SELECT * from comments where comment_id=?`).bind(commentId).all();
+
+  if (commentResults.results.length == 0) {
+    return new Response("Comment not found", { status: 404 });
+  }
+
+  // test that the comment was posted by the current user
+  if (commentResults.results[0].user_id != context.data.decodedUser.userId) {
+    return new Response("You can only edit your own comments", { status: 401 });
+  }
+
+  // test that the comment is less than 10 minutes old
+  if (Date.now() - commentResults.results[0].timestamp > 600000) {
+    return new Response("You can only edit comments for 10 minutes after posting", { status: 401 });
+  }
+
+
+  // now update the comment
+  await context.env.COMMENTS.prepare(`UPDATE comments SET comment=?, sanitized_comment=? WHERE comment_id=?`).bind(comment, sanitizeHtml(marked.parse(comment)), commentId).run();
+
+
+
+
+  // build a redirect url that will target the newly added comment, so it flashes with CSS
+  const redirectUrl = new URL(formData.get("return_url") + "#scc-comment-" + commentId);
   var redirectResponse = Response.redirect(redirectUrl.toString(), 302);
   return redirectResponse;
 }
