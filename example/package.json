@@ -1,14 +1,6 @@
 {
-  "name": "pages-plugins-simple-cloudflare-comments-example",
-  "private": true,
-  "version": "1.0.0",
-  "scripts": {
-    "build": "wrangler pages functions build --outfile static/_worker.js",
-    "start": "wrangler pages dev public --local --persist"
-  },
-  "devDependencies": {
 
-    "@cloudflare/workers-types": "^4.20221111.1",
+  "devDependencies": {
     "wrangler": "2"
   }
 }
