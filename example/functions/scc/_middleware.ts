@@ -1,4 +1,4 @@
-import simpleCloudFlareComments from "pages-plugin-simple-cloudflare-comments";
+import simpleCloudFlareComments from "@grahamsz/simple_cloudflare_comments";
 import { redirect } from "worker-auth-providers/src/providers/github";
 
 
