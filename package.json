@@ -1,10 +1,11 @@
 {
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "index.js",
   "files": [
     "index.js",
     "index.d.ts",
-    "tsconfig.json"
+    "tsconfig.json",
+    "migrations/*"
   ],
   "name": "@grahamsz/simple_cloudflare_comments",
   "repository": {
