@@ -23,6 +23,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   context.data.functionRoot = context.functionPath.replace(/\/[^\/]*$/, "/");
 
 
+  
   // Now we extract the user from the cookie using the HMAC signature specified in authCookieSecret
   const cookieHeader = parse(context.request.headers.get('Cookie') || '');
 
