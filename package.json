@@ -7,6 +7,15 @@
     "index.d.ts",
     "tsconfig.json"
   ],
+  "name": "@grahamsz/simple_cloudflare_comments",
+  "repository": {
+      "type": "git",
+      "url": "git+https://github.com/grahamsz/simple_cloudflare_comments.git"
+    },
+  "publishConfig": {
+    "@grahamsz:registry": "https://npm.pkg.github.com"
+  },
+
   "scripts": {
     "build": "wrangler pages functions build --plugin --outfile index.js"
   },
